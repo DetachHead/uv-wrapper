@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 #
-# Lightweight project-local wrapper for uv, with automatic download and upgrade capability.
+# Lightweight project-local wrapper for uv, with automatic download and
+# upgrade capability.
 #
 # Author: Florian Gamböck <uv-wrapper@mail.floga.de>
 # Version: 0.1.0-dev
 #
 # SPDX-License-Identifier: 0BSD
 #
-# This file is intentionally license-light to allow frictionless reuse.
-# Feel free to copy and paste this script into your own projects and adjust if necessary.
-# No attribution or license text is required.
+# This file is intentionally license-light to allow frictionless reuse. Feel
+# free to copy and paste this script into your own projects and adjust if
+# necessary. No attribution or license text is required.
 
 # -e: Fail immediately on error.
 # -E: ERR trap is inherited by Shell functions, substitutions, etc.
@@ -105,13 +106,17 @@ download() {
 
   if [ ! "$UV_VERSION" ]; then
     echo "Determine latest version"
-    UV_VERSION=$(curl -fLs -o /dev/null -w '%{url_effective}' 'https://github.com/astral-sh/uv/releases/latest')
+    UV_VERSION=$(
+      curl -fLs -o /dev/null -w '%{url_effective}' \
+        'https://github.com/astral-sh/uv/releases/latest'
+    )
     UV_VERSION=${UV_VERSION##*/}
     echo "$UV_VERSION" >"$THISDIR/.uv-version"
     echo "- $UV_VERSION"
   fi
 
-  DOWNLOAD_URL="https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-$UV_ARCH-$UV_OS.$UV_EXT"
+  DOWNLOAD_URL="https://github.com/astral-sh/uv/releases/download/"
+  DOWNLOAD_URL+="$UV_VERSION/uv-$UV_ARCH-$UV_OS.$UV_EXT"
 
   local file_name=${DOWNLOAD_URL##*/}
   local file_path="$UV_PATH/$file_name"
@@ -192,7 +197,8 @@ acquire_install_lock() {
   mkdir -p "$UV_PATH"
 
   while ! create_install_lock 2>/dev/null; do
-    # If the other process has already finished, we don't need to wait any longer.
+    # If the other process has already finished, we don't need to wait any
+    # longer.
     if is_uv_installed; then
       return 1
     fi
