@@ -170,6 +170,17 @@ LOCK_DIR="$UV_PATH/.install.lock"
 LOCK_PID_FILE="$LOCK_DIR/pid"
 LOCK_HELD=0
 
+create_install_lock() {
+  local lock_pid
+
+  # read back pid after writing it to counter possible race conditions
+  mkdir "$LOCK_DIR" 2>/dev/null &&
+    echo "$$" >"$LOCK_PID_FILE" &&
+    sleep 0.1 &&
+    lock_pid=$(<"$LOCK_PID_FILE") &&
+    [ "$lock_pid" = "$$" ]
+}
+
 release_install_lock() {
   [ "$LOCK_HELD" -eq 1 ] || return 0
   rm -f "$LOCK_PID_FILE" 2>/dev/null || true
@@ -180,18 +191,7 @@ release_install_lock() {
 acquire_install_lock() {
   mkdir -p "$UV_PATH"
 
-  create_lock() {
-    local lock_pid
-
-    # read back pid after writing it to counter possible race conditions
-    mkdir "$LOCK_DIR" 2>/dev/null &&
-      echo "$$" >"$LOCK_PID_FILE" &&
-      sleep 0.1 &&
-      lock_pid=$(<"$LOCK_PID_FILE") &&
-      [ "$lock_pid" = "$$" ]
-  }
-
-  while ! create_lock 2>/dev/null; do
+  while ! create_install_lock 2>/dev/null; do
     # If the other process has already finished, we don't need to wait any longer.
     if is_uv_installed; then
       return 1
