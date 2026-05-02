@@ -19,6 +19,19 @@ THISDIR=$(dirname "$0")
 
 UV_VERSION=$(head -n 1 "$THISDIR/.uv-version" 2>/dev/null || true)
 
+# Validate UV_VERSION if set
+if [ "$UV_VERSION" ]; then
+  if ! [[ "$UV_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    {
+      echo "Invalid version format in .uv-version: $UV_VERSION"
+      echo "Expected format: X.Y.Z (e.g., 0.1.0)"
+      echo "Leave it empty or remove the file to automatically"
+      echo "  pick the latest release!"
+    } >&2
+    exit 1
+  fi
+fi
+
 UV_ARCH=$(uname -m)
 case "$UV_ARCH" in
   x86_64 | amd64) UV_ARCH="x86_64" ;;
