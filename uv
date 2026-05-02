@@ -107,7 +107,7 @@ download() {
     echo "Determine latest version"
     UV_VERSION=$(curl -fLs -o /dev/null -w '%{url_effective}' 'https://github.com/astral-sh/uv/releases/latest')
     UV_VERSION=${UV_VERSION##*/}
-    echo "$UV_VERSION" >.uv-version
+    echo "$UV_VERSION" >"$THISDIR/.uv-version"
     echo "- $UV_VERSION"
   fi
 
