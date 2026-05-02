@@ -175,6 +175,10 @@ LOCK_DIR="$UV_PATH/.install.lock"
 LOCK_PID_FILE="$LOCK_DIR/pid"
 LOCK_HELD=0
 
+# Use mkdir as the atomic operation for acquiring the lock. The PID file is
+# only auxiliary state used for stale-lock detection and diagnostics.
+# Note that we cannot simply use flock here, because there are minimal
+# environments like git-bash, which do not have flock available!
 create_install_lock() {
   local lock_pid
 
@@ -200,10 +204,14 @@ acquire_install_lock() {
     # If the other process has already finished, we don't need to wait any
     # longer.
     if is_uv_installed; then
+      # Returning 1 here means "no lock acquired because installation is
+      # already complete", not "installation failed".
       return 1
     fi
 
-    # detect stale lock
+    # Detect stale locks on a best-effort basis. PID reuse can theoretically
+    # make an old lock look alive, but this is sufficient for a short-lived
+    # project-local installer.
     if [ -r "$LOCK_PID_FILE" ]; then
       local lock_pid
       IFS= read -r lock_pid <"$LOCK_PID_FILE" || true
@@ -248,5 +256,9 @@ trap cleanup EXIT
 
 ensure_installed >&2
 
+# This is a very opinionated decision. In the author's ideal world, all
+# applications talk in UTF-8, but especially Windows does not always follow.
+# To avoid conflicts between running this Python project on different
+# operating systems, force UTF-8 mode for Python.
 export PYTHONUTF8=1
 exec "$UV_BIN_DIR/$UV_EXE" --project "$THISDIR" "$@"
