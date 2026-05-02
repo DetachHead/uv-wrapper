@@ -98,10 +98,10 @@ download() {
     fi
   done
 
-  echo "Removing previous files"
-  rm -rf "$UV_BIN_DIR" "$UV_TEMP_DIR"
+  echo "Removing previous temporary files"
+  rm -rf "$UV_TEMP_DIR"
 
-  mkdir -p "$UV_BIN_DIR" "$UV_TEMP_DIR"
+  mkdir -p "$UV_TEMP_DIR"
 
   if [ ! "$UV_VERSION" ]; then
     echo "Determine latest version"
@@ -146,6 +146,10 @@ download() {
 
   echo "Unpacking archive"
   unpack "$file_path" "$UV_TEMP_DIR"
+
+  echo "Removing previous binary"
+  rm -rf "$UV_BIN_DIR"
+  mkdir -p "$UV_BIN_DIR"
 
   echo "Install uv to local bin"
   mv "$UV_TEMP_DIR/$UV_EXE" "$UV_BIN_DIR"
