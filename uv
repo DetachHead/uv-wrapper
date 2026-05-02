@@ -173,7 +173,7 @@ LOCK_HELD=0
 create_install_lock() {
   local lock_pid
 
-  # read back pid after writing it to counter possible race conditions
+  # Read back pid after writing it to counter possible race conditions.
   mkdir "$LOCK_DIR" 2>/dev/null &&
     echo "$$" >"$LOCK_PID_FILE" &&
     sleep 0.1 &&
