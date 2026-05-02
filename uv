@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+#
+# Lightweight project-local wrapper for uv, with automatic download and upgrade capability.
+#
+# Author: Florian Gamböck <uv-wrapper@mail.floga.de>
+# Version: 0.1.0-dev
+#
+# SPDX-License-Identifier: 0BSD
+#
+# This file is intentionally license-light to allow frictionless reuse.
+# Feel free to copy and paste this script into your own projects and adjust if necessary.
+# No attribution or license text is required.
+
+# -e: Fail immediately on error.
+# -E: ERR trap is inherited by Shell functions, substitutions, etc.
+set -eE
+
+THISDIR=$(dirname "$0")
+
+UV_VERSION=$(head -n 1 "$THISDIR/.uv-version" 2>/dev/null || true)
+
+UV_ARCH=$(uname -m)
+case "$UV_ARCH" in
+  x86_64 | amd64) UV_ARCH="x86_64" ;;
+  aarch64 | arm64) UV_ARCH="aarch64" ;;
+  *)
+    echo "Unsupported architecture: $UV_ARCH" >&2
+    exit 1
+    ;;
+esac
+
+UV_OS=$(uname -s)
+case "$UV_OS" in
+  Linux)
+    UV_OS="unknown-linux-gnu"
+    UV_EXT="tar.gz"
+    UV_EXE="uv"
+    ;;
+  MINGW* | MSYS* | CYGWIN* | Windows_NT)
+    UV_OS="pc-windows-msvc"
+    UV_EXT="zip"
+    UV_EXE="uv.exe"
+    ;;
+  *)
+    echo "Unsupported operating system: $UV_OS" >&2
+    exit 1
+    ;;
+esac
+
+UV_PATH="$THISDIR/.uv"
+UV_BIN_DIR="$UV_PATH/bin"
+UV_TEMP_DIR="$UV_PATH/temp"
+
+download() {
+  echo "Checking required programms"
+
+  local required=(curl sha256sum)
+
+  case "$UV_EXT" in
+    zip)
+      required+=(unzip)
+      unpack() {
+        local archive=$1
+        local out_dir=$2
+        unzip -d "$out_dir" "$archive"
+      }
+      ;;
+    tar.gz)
+      required+=(tar gunzip)
+      unpack() {
+        local archive=$1
+        local out_dir=$2
+        tar -xzvp --strip-components=1 -C "$out_dir" -f "$archive"
+      }
+      ;;
+  esac
+
+  local cmd
+  for cmd in "${required[@]}"; do
+    echo "- $cmd"
+    if ! command -v "$cmd" >/dev/null; then
+      echo "! $cmd is not found, this indicates an incomplete environment"
+      echo "! Please report this issue to your friendly neighborhood scripter"
+      exit 1
+    fi
+  done
+
+  echo "Removing previous files"
+  rm -rf "$UV_BIN_DIR" "$UV_TEMP_DIR"
+
+  mkdir -p "$UV_BIN_DIR" "$UV_TEMP_DIR"
+
+  if [ ! "$UV_VERSION" ]; then
+    echo "Determine latest version"
+    UV_VERSION=$(curl -fLs -o /dev/null -w '%{url_effective}' 'https://github.com/astral-sh/uv/releases/latest')
+    UV_VERSION=${UV_VERSION##*/}
+    echo "$UV_VERSION" >.uv-version
+    echo "- $UV_VERSION"
+  fi
+
+  DOWNLOAD_URL="https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-$UV_ARCH-$UV_OS.$UV_EXT"
+
+  local file_name=${DOWNLOAD_URL##*/}
+  local file_path="$UV_PATH/$file_name"
+
+  echo "Downloading $UV_VERSION/$file_name"
+  curl -fLo "$file_path.temp" "$DOWNLOAD_URL"
+
+  echo "Downloading SHA256"
+  local uv_checksum
+  uv_checksum=$(curl -fL "$DOWNLOAD_URL.sha256")
+  uv_checksum=${uv_checksum%% *}
+
+  echo "Check download"
+  [ -r "$file_path.temp" ]
+  [ "$uv_checksum" ]
+
+  echo "Check hash"
+  local checksum
+  checksum=$(sha256sum "$file_path.temp")
+  # Important workaround for Windows: Sometimes the whole line is prefixed
+  # by a backslash to mark certain filenames. This disturbs the check for
+  # the correct checksum, so remove it if present.
+  checksum=${checksum#\\}
+  checksum=${checksum%% *}
+  if [ "$checksum" != "$uv_checksum" ]; then
+    echo "'$checksum' =! '$uv_checksum'" >&2
+    exit 1
+  fi
+
+  echo "Finalizing download"
+  mv "$file_path.temp" "$file_path"
+
+  echo "Unpacking archive"
+  unpack "$file_path" "$UV_TEMP_DIR"
+
+  echo "Install uv to local bin"
+  mv "$UV_TEMP_DIR/$UV_EXE" "$UV_BIN_DIR"
+
+  # Note: uvx is ignored here on purpose, since it only makes sense in a
+  # global context. uv shall only be called locally in this project.
+
+  echo "Cleaning up temporary files"
+  rm -rf "$file_path" "$UV_TEMP_DIR"
+}
+
+is_uv_installed() {
+  [ -x "$UV_BIN_DIR/$UV_EXE" ] &&
+    [[ "$("$UV_BIN_DIR/$UV_EXE" --version)" = "uv $UV_VERSION "* ]]
+}
+
+LOCK_DIR="$UV_PATH/.install.lock"
+LOCK_PID_FILE="$LOCK_DIR/pid"
+LOCK_HELD=0
+
+release_install_lock() {
+  [ "$LOCK_HELD" -eq 1 ] || return 0
+  rm -f "$LOCK_PID_FILE" 2>/dev/null || true
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+  LOCK_HELD=0
+}
+
+acquire_install_lock() {
+  mkdir -p "$UV_PATH"
+
+  create_lock() {
+    local lock_pid
+
+    # read back pid after writing it to counter possible race conditions
+    mkdir "$LOCK_DIR" 2>/dev/null &&
+      echo "$$" >"$LOCK_PID_FILE" &&
+      sleep 0.1 &&
+      lock_pid=$(<"$LOCK_PID_FILE") &&
+      [ "$lock_pid" = "$$" ]
+  }
+
+  while ! create_lock 2>/dev/null; do
+    # If the other process has already finished, we don't need to wait any longer.
+    if is_uv_installed; then
+      return 1
+    fi
+
+    # detect stale lock
+    if [ -r "$LOCK_PID_FILE" ]; then
+      local lock_pid
+      IFS= read -r lock_pid <"$LOCK_PID_FILE" || true
+
+      if [ "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
+        echo "Removing stale install lock from PID $lock_pid" >&2
+        rm -f "$LOCK_PID_FILE" 2>/dev/null || true
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+        continue
+      fi
+    fi
+
+    sleep 1
+  done
+
+  LOCK_HELD=1
+  return 0
+}
+
+ensure_installed() {
+  is_uv_installed && return 0
+
+  if acquire_install_lock; then
+    # Check again after lock to prevent duplicate download.
+    is_uv_installed || download
+    release_install_lock
+  fi
+
+  is_uv_installed
+}
+
+cleanup() {
+  local exit_code=$?
+  release_install_lock
+
+  if [ "$exit_code" -ne 0 ]; then
+    echo "FAILED" >&2
+  fi
+}
+
+trap cleanup EXIT
+
+ensure_installed >&2
+
+export PYTHONUTF8=1
+exec "$UV_BIN_DIR/$UV_EXE" --project "$THISDIR" "$@"
