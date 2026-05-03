@@ -14,7 +14,7 @@ on:
 
 jobs:
   test:
-    name: Run test suite for ${{ matrix.name }}
+    name: Run test suite for ${{ matrix.os }}
     strategy:
       matrix:
         os: [ ubuntu-latest, windows-latest ]
@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Test
         shell: bash
