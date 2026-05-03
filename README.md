@@ -120,8 +120,8 @@ wrapper.
     - The script automatically removes stale lock files if the recorded PID is no longer running.
 - Version mismatch or corrupted install
     - Remove `./.uv` and rerun `./uv`.
-    - This might happen under certain circumstances, like when you are working with your repository in different "
-      operating systems" in parallel – for example, you use your repository in Windows and via WSL. Since WSL (Linux)
+    - This might happen under certain circumstances, like when you are working with your repository in different
+      "operating systems" in parallel – for example, you use your repository in Windows and via WSL. Since WSL (Linux)
       needs a different binary than Windows, the wrapper will be confused and might not work as expected. My
       recommendation is, stick to one operating system and avoid switching back and forth. If you absolutely need to,
       make sure to remove the `./.uv` directory and maybe even the virtual Python environment in `./.venv` to ensure a
