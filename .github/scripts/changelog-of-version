@@ -1,0 +1,24 @@
+#!/bin/bash
+
+remove_top() {
+    local top=1 line
+    while IFS= read -r line; do
+        if [ "$top" ]; then
+            if [ "$line" ] && [[ "$line" != "# "* ]]; then
+                top=
+                printf '%s\n' "$line"
+            fi
+        else
+            printf '%s\n' "$line"
+        fi
+    done
+}
+
+if [ ! -r CHANGES.md ]; then
+    echo "No Changelog found"
+fi
+
+sed --silent '/^# .*'"$1"'$/,/^# /p' <CHANGES.md |
+    tac |
+    remove_top |
+    tac

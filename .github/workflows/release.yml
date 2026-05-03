@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+      - 'hotfix/**'
+      - 'release/**'
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  github_release:
+    name: Create GitHub release
+    if: ${{ github.ref == 'refs/heads/main'  }}
+    needs:
+      - test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag name
+        id: get-latest-tag-name
+        shell: bash
+        run: echo "tag_name=$(git describe --tags --abbrev=0)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Create checksums
+        run: sha256sum uv | awk '{print $1}' >uv.sha256
+
+      - name: Create release notes
+        run: |
+          ./.github/scripts/changelog-of-version \
+            "${{ steps.get-latest-tag-name.outputs.tag_name }}" \
+            >RELEASE.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.get-latest-tag-name.outputs.tag_name }}
+          files: |
+            uv
+            uv.sha256
+          body_path: RELEASE.md

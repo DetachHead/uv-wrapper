@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  pull_request:
+
+  push:
+    branches:
+      - develop
+      - 'feature/**'
+
+  workflow_call:
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run test suite for ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Test
+        shell: bash
+        run: |
+          rm -rf .uv .uv-version
+          ./uv --version
