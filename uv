@@ -115,8 +115,16 @@ download() {
   if [ ! "$UV_VERSION" ]; then
     echo "Determine latest version"
     UV_VERSION=$(
-      curl -fLs -o /dev/null -w '%{url_effective}' \
-        'https://github.com/astral-sh/uv/releases/latest'
+      if ! curl -fLs -o /dev/null -w '%{url_effective}' \
+        'https://github.com/astral-sh/uv/releases/latest'; then
+        {
+          echo "! Failed to retrieve latest release version."
+          echo "! Maybe the redirect mechanism on GitHub is not working properly."
+          echo "! As a quick fix, please specify an existing release manually."
+          echo "! URL: https://github.com/astral-sh/uv/releases"
+        } >&2
+        exit 1
+      fi
     )
     UV_VERSION=${UV_VERSION##*/}
     echo "$UV_VERSION" >"$THISDIR/.uv-version"
@@ -135,11 +143,28 @@ download() {
   local file_path="$UV_PATH/$file_name"
 
   echo "Downloading $UV_VERSION/$file_name"
-  curl -fLo "$file_path.temp" "$DOWNLOAD_URL"
+  if ! curl -fLo "$file_path.temp" "$DOWNLOAD_URL"; then
+    {
+      echo "! Failed to download uv release: $UV_VERSION"
+      echo "! The release may not exist, or GitHub may be unreachable."
+      echo "! Download URL: $DOWNLOAD_URL"
+    } >&2
+    exit 1
+  fi
 
   echo "Downloading SHA256"
   local uv_checksum
-  uv_checksum=$(curl -fL "$DOWNLOAD_URL.sha256")
+  uv_checksum=$(
+    if ! curl -fL "$DOWNLOAD_URL.sha256"; then
+      {
+        echo "! Failed to download SHA256 checksum for $UV_VERSION."
+        echo "! The download cannot be verified without the checksum."
+        echo "! For your own safety, the uv-wrapper will not proceed."
+        echo "! Download URL: $DOWNLOAD_URL.sha256"
+      } >&2
+      exit 1
+    fi
+  )
   uv_checksum=${uv_checksum%% *}
 
   echo "Check download"
