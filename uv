@@ -121,6 +121,11 @@ download() {
     UV_VERSION=${UV_VERSION##*/}
     echo "$UV_VERSION" >"$THISDIR/.uv-version"
     echo "- $UV_VERSION"
+
+    if is_uv_installed; then
+      echo "Latest version already in place, no download necessary."
+      return 0
+    fi
   fi
 
   DOWNLOAD_URL="https://github.com/astral-sh/uv/releases/download/"
