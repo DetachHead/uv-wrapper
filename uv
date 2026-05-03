@@ -239,7 +239,7 @@ create_install_lock() {
       {
         echo "! Lock directory path cannot be cleared: $LOCK_DIR"
         echo "! Please remove it manually and try again."
-      }
+      } >&2
       exit 1
     fi
   fi
@@ -247,8 +247,9 @@ create_install_lock() {
   # Read back pid after writing it to counter possible race conditions.
   mkdir "$LOCK_DIR" 2>/dev/null &&
     echo "$$" >"$LOCK_PID_FILE" &&
-    sleep 0.1 &&
-    lock_pid=$(read_pid_file) &&
+    sleep 0.1 && {
+    lock_pid=$(read_pid_file) || exit 1
+  } &&
     [ "$lock_pid" = "$$" ]
 }
 
@@ -261,7 +262,7 @@ release_install_lock() {
 acquire_install_lock() {
   mkdir -p "$UV_PATH"
 
-  while ! create_install_lock 2>/dev/null; do
+  while ! create_install_lock; do
     # If the other process has already finished, we don't need to wait any
     # longer.
     if is_uv_installed; then
