@@ -181,7 +181,8 @@ download() {
 }
 
 is_uv_installed() {
-  [ -x "$UV_BIN_DIR/$UV_EXE" ] &&
+  [ "$UV_VERSION" ] &&
+    [ -x "$UV_BIN_DIR/$UV_EXE" ] &&
     [[ "$("$UV_BIN_DIR/$UV_EXE" --version)" = "uv $UV_VERSION "* ]]
 }
 
