@@ -32,10 +32,10 @@ UV_VERSION=${UV_VERSION##*([[:space:]])}
 if [ "$UV_VERSION" ]; then
   if ! [[ "$UV_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     {
-      echo "Invalid version format in .uv-version: $UV_VERSION"
-      echo "Expected format: X.Y.Z (e.g., 0.1.0)"
-      echo "Leave it empty or remove the file to automatically"
-      echo "  pick the latest release!"
+      echo "! Invalid version format in .uv-version: $UV_VERSION"
+      echo "! Expected format: X.Y.Z (e.g., 0.1.0)"
+      echo "! Leave it empty or remove the file to automatically"
+      echo "!   pick the latest release!"
     } >&2
     exit 1
   fi
