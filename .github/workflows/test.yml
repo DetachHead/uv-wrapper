@@ -14,7 +14,7 @@ on:
 
 jobs:
   test:
-    name: Run test suite for ${{ matrix.name }}
+    name: Run test suite for ${{ matrix.os }}
     strategy:
       matrix:
         os: [ ubuntu-latest, windows-latest ]
