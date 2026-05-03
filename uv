@@ -16,16 +16,13 @@
 # -E: ERR trap is inherited by Shell functions, substitutions, etc.
 set -eE
 
-# Enable extended Pattern Matching
-shopt -s extglob
-
 THISDIR=$(dirname "$0")
 
 UV_VERSION=$(head -n 1 "$THISDIR/.uv-version" 2>/dev/null || true)
 
 # Remove leading and trailing whitespaces from the version string
-UV_VERSION=${UV_VERSION%%*([[:space:]])}
-UV_VERSION=${UV_VERSION##*([[:space:]])}
+UV_VERSION=${UV_VERSION#"${UV_VERSION%%[![:space:]]*}"}
+UV_VERSION=${UV_VERSION%"${UV_VERSION##*[![:space:]]}"}
 
 # Validate UV_VERSION if set. We are only allowing stable versions here. If
 # this is too strict, we can easily remove the following block in the future.
