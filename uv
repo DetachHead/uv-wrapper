@@ -218,6 +218,10 @@ LOCK_PID_FILE="$LOCK_DIR/pid"
 LOCK_HELD=0
 
 read_pid_file() {
+  # Lock file might have been deleted by a concurrent process. Check it and
+  # return the control back to the caller, but do not bail out completely yet.
+  [ -r "$LOCK_PID_FILE" ] || return 1
+
   if ! cat "$LOCK_PID_FILE"; then
     {
       echo "Lock PID file could not be read: $LOCK_PID_FILE"
@@ -234,8 +238,12 @@ read_pid_file() {
 create_install_lock() {
   local lock_pid
 
-  if [ -e "$LOCK_DIR" ] && [ ! -d "$LOCK_DIR" ]; then
-    if ! rm -f "$LOCK_DIR"; then
+  if [[ -e "$LOCK_DIR" && ! -d "$LOCK_DIR" ]]; then
+    # Explicitly use recursive delete here, to handle the case when a parallel
+    # instance has already removed the faulty file and created a proper
+    # folder. This other instance will go into another waiting cycle by the
+    # lock logic.
+    if ! rm -rf "$LOCK_DIR"; then
       {
         echo "! Lock directory path cannot be cleared: $LOCK_DIR"
         echo "! Please remove it manually and try again."
@@ -246,7 +254,7 @@ create_install_lock() {
 
   # Read back pid after writing it to counter possible race conditions.
   mkdir "$LOCK_DIR" 2>/dev/null &&
-    echo "$$" >"$LOCK_PID_FILE" &&
+    echo "$$" >"$LOCK_PID_FILE" 2>/dev/null &&
     sleep 0.1 && {
     lock_pid=$(read_pid_file) || exit 1
   } &&
@@ -262,6 +270,7 @@ release_install_lock() {
 acquire_install_lock() {
   mkdir -p "$UV_PATH"
 
+  local incomplete_lock_detected=
   while ! create_install_lock; do
     # If the other process has already finished, we don't need to wait any
     # longer.
@@ -283,6 +292,30 @@ acquire_install_lock() {
         rm -rf "$LOCK_DIR" 2>/dev/null || true
         continue
       fi
+    fi
+
+    # Detect an incomplete lock dir, probably due to an aborted previous
+    # installation. It is checked for either a missing or an unreadable lock
+    # file. We give it a grace period of one cycle, in case another process is
+    # currently writing to it.
+    if [[ -d "$LOCK_DIR" &&
+      (! -e "$LOCK_PID_FILE" || ! -r "$LOCK_PID_FILE") ]]; then
+      if [ ! "$incomplete_lock_detected" ]; then
+        # Grace period, wait for one cycle before doing anything.
+        incomplete_lock_detected=1
+      else
+        echo "Removing incomplete install lock" >&2
+        if ! rm -rf "$LOCK_DIR"; then
+          {
+            echo "! Lock directory path cannot be cleared: $LOCK_DIR"
+            echo "! Please remove it manually and try again."
+          } >&2
+          exit 1
+        fi
+        incomplete_lock_detected=
+      fi
+    else
+      incomplete_lock_detected=
     fi
 
     sleep 1
