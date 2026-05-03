@@ -165,6 +165,9 @@ download() {
   echo "Unpacking archive"
   unpack "$file_path" "$UV_TEMP_DIR"
 
+  echo "Check archive content"
+  [ -r "$UV_TEMP_DIR/$UV_EXE" ]
+
   echo "Removing previous binary"
   rm -rf "$UV_BIN_DIR"
   mkdir -p "$UV_BIN_DIR"
