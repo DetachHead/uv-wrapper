@@ -115,7 +115,7 @@ wrapper.
     - The current wrapper only supports the OS/arch combinations listed above. For other combinations, please open an
       issue or PR.
 - Missing required command (`curl`, `sha256sum`, etc.)
-    - Install the missing programms and rerun `./uv`.
+    - Install the missing programs and rerun `./uv`.
 - Stale lock detected
     - The script automatically removes stale lock files if the recorded PID is no longer running.
 - Version mismatch or corrupted install

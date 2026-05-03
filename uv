@@ -74,7 +74,7 @@ UV_BIN_DIR="$UV_PATH/bin"
 UV_TEMP_DIR="$UV_PATH/temp"
 
 download() {
-  echo "Checking required programms"
+  echo "Checking required programs"
 
   local required=(curl sha256sum)
 
