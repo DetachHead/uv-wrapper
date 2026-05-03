@@ -27,7 +27,8 @@ UV_VERSION=$(head -n 1 "$THISDIR/.uv-version" 2>/dev/null || true)
 UV_VERSION=${UV_VERSION%%*([[:space:]])}
 UV_VERSION=${UV_VERSION##*([[:space:]])}
 
-# Validate UV_VERSION if set
+# Validate UV_VERSION if set. We are only allowing stable versions here. If
+# this is too strict, we can easily remove the following block in the future.
 if [ "$UV_VERSION" ]; then
   if ! [[ "$UV_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     {
