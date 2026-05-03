@@ -171,6 +171,7 @@ download() {
 
   echo "Install uv to local bin"
   mv "$UV_TEMP_DIR/$UV_EXE" "$UV_BIN_DIR"
+  chmod +x "$UV_BIN_DIR/$UV_EXE"
 
   # Note: uvx is ignored here on purpose, since it only makes sense in a
   # global context. uv shall only be called locally in this project.
